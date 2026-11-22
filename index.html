@@ -1,4 +1,4 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>Study Timer</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -317,6 +317,31 @@
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }
   }
+  /* notes: pinned status on top, day-wise record below */
+  #view-notes { overflow: hidden; padding-bottom: 0; }
+  .statusbox { display: flex; flex-direction: column; gap: 8px; flex: none; }
+  .statusrow { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; }
+  #noteStatus {
+    width: 100%; min-height: 104px; max-height: 34vh; resize: vertical; padding: 14px 16px;
+    border: 1.5px solid var(--fg); border-radius: 16px; background: transparent; color: var(--fg);
+    font: 500 clamp(18px, 2.6vw, 24px)/1.35 var(--f-display);
+  }
+  #noteStatus::placeholder, #noteText::placeholder { color: var(--muted); }
+  .noteslog { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding-bottom: 24px; scrollbar-width: thin; }
+  .noteform { display: flex; flex-direction: column; gap: 8px; }
+  #noteText {
+    width: 100%; min-height: 72px; resize: vertical; padding: 10px 14px;
+    border: 1.5px solid var(--line); border-radius: 14px; background: transparent; color: var(--fg);
+    font: 400 16px/1.4 var(--f-display);
+  }
+  .dayhead { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-top: 6px; padding-bottom: 6px; border-bottom: 1.5px solid var(--line); font-weight: 700; font-size: 16px; }
+  .note { display: flex; gap: 12px; align-items: flex-start; padding: 10px 2px; border-bottom: 1px solid var(--line); }
+  .nt { flex: none; width: 3.4em; padding-top: 3px; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .nb { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .nk { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+  .ntext { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 16px; }
+  @media (max-height: 520px) { #noteStatus { min-height: 64px; } }
+
   /* phones and small windows: keep every part on screen */
   .stage { overflow-y: auto; justify-content: safe center; scrollbar-width: none; }
   .tiles { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
@@ -371,6 +396,7 @@
       <div class="seg" role="group" aria-label="View">
         <button id="v-timer" type="button" aria-pressed="true">Timer</button>
         <button id="v-tasks" type="button" aria-pressed="false">Tasks<span id="openCount" class="count"></span></button>
+        <button id="v-notes" type="button" aria-pressed="false">Notes</button>
         <button id="v-log" type="button" aria-pressed="false">Log</button>
       </div>
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:flex-end">
@@ -429,6 +455,29 @@
         <ul id="doneList" class="tasks"></ul>
       </section>
 
+      <!-- NOTES -->
+      <section id="view-notes" class="panel" hidden aria-label="Notes">
+        <div class="statusbox">
+          <div class="statusrow"><span class="label">Right now</span><span id="noteStamp" class="sub"></span></div>
+          <textarea id="noteStatus" maxlength="1000" placeholder="How are you doing right now? Write anything. It stays here until you change it." aria-label="How you are right now"></textarea>
+        </div>
+        <div class="noteslog">
+          <div class="statusrow"><span class="label">Daily notes and learnings</span><button id="dlNotes" class="chip small" type="button" hidden>Download notes</button></div>
+          <div class="noteform">
+            <textarea id="noteText" maxlength="4000" placeholder="What did you learn or notice today?" aria-label="New note"></textarea>
+            <div class="actions">
+              <div id="noteKinds" class="chips" role="group" aria-label="Type">
+                <button class="chip small" type="button" data-kind="learning" aria-pressed="true">Learning</button>
+                <button class="chip small" type="button" data-kind="note" aria-pressed="false">Note</button>
+              </div>
+              <button id="noteAdd" class="pill primary" type="button" style="height:40px;min-width:80px;padding:0 20px;font-size:15px">Add</button>
+              <span class="sub">Ctrl+Enter also adds</span>
+            </div>
+          </div>
+          <div id="noteList"></div>
+        </div>
+      </section>
+
       <!-- LOG -->
       <section id="view-log" class="panel" hidden aria-label="Focus log">
         <div class="panel-head">
@@ -437,6 +486,7 @@
             <button id="dlCsv" class="chip" type="button" hidden>Download CSV</button>
             <button id="copyCsv" class="chip" type="button">Copy CSV</button>
             <button id="impBtn" class="chip" type="button">Import</button>
+            <button id="folderBtn" class="chip" type="button" hidden>Save to folder</button>
           </div>
         </div>
         <div id="logMsg" class="sub" aria-live="polite" style="min-height:1.4em"></div>
@@ -501,8 +551,8 @@
     go: $('go'), lap: $('lap'), reset: $('reset'), aux: $('aux'), status: $('status'),
     today: $('today'), sessions: $('sessions'), quote: $('quote'), foot: $('foot'),
     mSw: $('m-stopwatch'), mTm: $('m-timer'), mPomo: $('m-pomodoro'), fullscreen: $('fullscreen'),
-    vTimer: $('v-timer'), vTasks: $('v-tasks'), vLog: $('v-log'), openCount: $('openCount'),
-    secTimer: $('view-timer'), secTasks: $('view-tasks'), secLog: $('view-log'),
+    vTimer: $('v-timer'), vTasks: $('v-tasks'), vNotes: $('v-notes'), vLog: $('v-log'), openCount: $('openCount'),
+    secTimer: $('view-timer'), secTasks: $('view-tasks'), secNotes: $('view-notes'), secLog: $('view-log'),
     addForm: $('addForm'), taskTitle: $('taskTitle'), taskDue: $('taskDue'), taskTime: $('taskTime'),
     taskList: $('taskList'), doneList: $('doneList'), doneHead: $('doneHead'), clearDone: $('clearDone'), taskSummary: $('taskSummary'),
     dlCsv: $('dlCsv'), copyCsv: $('copyCsv'), logMsg: $('logMsg'), csvBox: $('csvBox'),
@@ -524,6 +574,7 @@
   var DAY_PREFIX = 'studytimer.day.';
   var TASK_KEY = 'studytimer.tasks.v1';
   var UI_KEY = 'studytimer.ui.v1';
+  var NOTES_KEY = 'studytimer.notes.v1';
   var MAX_STEP_MS = 6 * 3600 * 1000;
   var TICK = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 4.8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
@@ -559,11 +610,19 @@
   var tasks = store.get(TASK_KEY);
   if (!Array.isArray(tasks)) tasks = [];
   tasks = tasks.filter(function (t) { return t && typeof t.id === 'string' && typeof t.title === 'string'; });
+  var notes = store.get(NOTES_KEY);
+  if (!notes || typeof notes !== 'object') notes = {};
+  if (typeof notes.status !== 'string') notes.status = '';
+  if (!(notes.statusAt > 0)) notes.statusAt = 0;
+  if (!Array.isArray(notes.entries)) notes.entries = [];
+  notes.entries = notes.entries.filter(function (e) { return e && typeof e.id === 'string' && typeof e.text === 'string' && e.at > 0; });
+  var noteKind = 'learning';
   var rev = 0;
   var view = 'timer';
   var dlApi = null;
-  function saveTasks() { rev++; store.set(TASK_KEY, tasks); }
-  function saveUi() { rev++; store.set(UI_KEY, ui); }
+  function saveTasks() { rev++; store.set(TASK_KEY, tasks); scheduleFolder(); }
+  function saveUi() { rev++; store.set(UI_KEY, ui); scheduleFolder(); }
+  function saveNotes() { rev++; store.set(NOTES_KEY, notes); scheduleFolder(); }
 
   /* daily record: { ms: focused milliseconds, n: sessions, td: tasks completed } */
   var dayK = dateKey(new Date());
@@ -582,6 +641,7 @@
     ensureDay();
     store.set(KEY, s);
     store.set(DAY_PREFIX + dayK, day);
+    scheduleFolder();
   }
   function credit(d) { if (s.mode === 'pomodoro' && s.phase === 'break') return; ensureDay(); day.ms += Math.min(Math.max(0, d), MAX_STEP_MS); }
   function phaseMinutes() { return s.phase === 'work' ? s.work : s.rest; }
@@ -992,6 +1052,9 @@
     } else if (view === 'log') {
       var lk = rev + '|' + Math.floor(now / 15000) + '|' + (s.status === 'running' ? 'r' : 'i') + '|' + dayK;
       if (lk !== last.log) { last.log = lk; renderLog(); }
+    } else if (view === 'notes') {
+      var nk = rev + '|' + dayK;
+      if (nk !== last.notes) { last.notes = nk; renderNotes(); }
     }
   }
 
@@ -1069,19 +1132,22 @@
   }
 
   /* views */
-  var VIEWS = ['timer', 'tasks', 'log'];
+  var VIEWS = ['timer', 'tasks', 'notes', 'log'];
   function setView(v, fromHash) {
     if (VIEWS.indexOf(v) < 0) v = 'timer';
     view = v;
     els.secTimer.hidden = v !== 'timer';
     els.secTasks.hidden = v !== 'tasks';
     els.secLog.hidden = v !== 'log';
+    els.secNotes.hidden = v !== 'notes';
+    els.vNotes.setAttribute('aria-pressed', String(v === 'notes'));
     els.foot.hidden = v !== 'timer';
     els.vTimer.setAttribute('aria-pressed', String(v === 'timer'));
     els.vTasks.setAttribute('aria-pressed', String(v === 'tasks'));
     els.vLog.setAttribute('aria-pressed', String(v === 'log'));
     if (!fromHash) { try { if (location.hash !== '#' + v) location.hash = v; } catch (e) {} }
-    last.corner = ''; last.tasks = ''; last.log = '';
+    last.corner = ''; last.tasks = ''; last.log = ''; last.notes = '';
+    if (v === 'notes') fillStatus();
     render();
   }
   window.addEventListener('hashchange', function () {
@@ -1092,6 +1158,7 @@
   /* events */
   els.vTimer.addEventListener('click', function () { setView('timer'); });
   els.vTasks.addEventListener('click', function () { setView('tasks'); });
+  els.vNotes.addEventListener('click', function () { setView('notes'); });
   els.vLog.addEventListener('click', function () { setView('log'); });
   els.go.addEventListener('click', toggle);
   els.reset.addEventListener('click', doReset);
@@ -1213,6 +1280,75 @@
   });
   window.addEventListener('pagehide', save);
 
+  /* notes: a pinned status and a day-wise record */
+  var noteStatus = $('noteStatus'), noteStamp = $('noteStamp'), noteText = $('noteText'), noteList = $('noteList'), statusTimer = 0;
+  function stampStr() { return notes.statusAt ? 'Updated ' + whenStr(notes.statusAt) : 'Not written yet'; }
+  function fillStatus() { noteStatus.value = notes.status; noteStamp.textContent = stampStr(); }
+  noteStatus.addEventListener('input', function () {
+    notes.status = noteStatus.value.slice(0, 1000);
+    notes.statusAt = Date.now();
+    noteStamp.textContent = stampStr();
+    store.set(NOTES_KEY, notes);
+    clearTimeout(statusTimer);
+    statusTimer = setTimeout(saveNotes, 500);
+  });
+  $('noteKinds').addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('button[data-kind]') : null;
+    if (!b) return;
+    noteKind = b.getAttribute('data-kind');
+    Array.prototype.forEach.call(this.querySelectorAll('button'), function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+  });
+  function addNote() {
+    var t = noteText.value.trim();
+    if (!t) return;
+    notes.entries.push({ id: uid(), text: t.slice(0, 4000), kind: noteKind, at: Date.now() });
+    noteText.value = '';
+    saveNotes(); render(); noteText.focus();
+  }
+  $('noteAdd').addEventListener('click', addNote);
+  noteText.addEventListener('keydown', function (e) { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); addNote(); } });
+  noteList.addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('button[data-nid]') : null;
+    if (!b) return;
+    var id = b.getAttribute('data-nid');
+    notes.entries = notes.entries.filter(function (x) { return x.id !== id; });
+    saveNotes(); render();
+  });
+  function renderNotes() {
+    var list = notes.entries.slice().sort(function (a, b) { return b.at - a.at; });
+    if (!list.length) { noteList.innerHTML = '<div class="empty">No entries yet. Whatever you add shows here, grouped by day.</div>'; return; }
+    var counts = {};
+    list.forEach(function (e) { var k = dateKey(new Date(e.at)); counts[k] = (counts[k] || 0) + 1; });
+    var h = '', cur = '';
+    list.forEach(function (e) {
+      var d = new Date(e.at), key = dateKey(d);
+      if (key !== cur) {
+        if (cur) h += '</ul>';
+        cur = key;
+        h += '<div class="dayhead"><span>' + esc(d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' })) + (key === dayK ? ' · Today' : '') + '</span><span class="sub">' + counts[key] + (counts[key] === 1 ? ' entry' : ' entries') + '</span></div><ul class="tasks">';
+      }
+      h += '<li class="note"><span class="nt">' + hhmm(d) + '</span><div class="nb"><span class="nk">' + (e.kind === 'note' ? 'Note' : 'Learning') + '</span><div class="ntext">' + esc(e.text) + '</div></div>' +
+        '<button class="del" type="button" data-nid="' + esc(e.id) + '" aria-label="Delete this entry">×</button></li>';
+    });
+    h += '</ul>';
+    noteList.innerHTML = h;
+  }
+  function buildNotesMd() {
+    var out = ['# Notes', '', '## Right now', '', notes.status ? notes.status : '(empty)'];
+    if (notes.statusAt) out.push('', '_Updated ' + new Date(notes.statusAt).toLocaleString() + '_');
+    var list = notes.entries.slice().sort(function (a, b) { return b.at - a.at; }), cur = '';
+    list.forEach(function (e) {
+      var d = new Date(e.at), key = dateKey(d);
+      if (key !== cur) { cur = key; out.push('', '## ' + key + ' ' + d.toLocaleDateString('en-US', { weekday: 'long' }), ''); }
+      out.push('- ' + hhmm(d) + ' [' + (e.kind === 'note' ? 'Note' : 'Learning') + '] ' + e.text.replace(/\n/g, '\n  '));
+    });
+    return out.join('\n') + '\n';
+  }
+  $('dlNotes').addEventListener('click', function () {
+    if (!dlApi) return;
+    dlApi.save({ filename: 'notes-' + dateKey(new Date()) + '.md', data: buildNotesMd() }).catch(function () {});
+  });
+
   /* import from the old timer */
   var impBtn = $('impBtn'), impBox = $('impBox'), impText = $('impText');
   impBtn.addEventListener('click', function () { impBox.hidden = !impBox.hidden; if (!impBox.hidden) impText.focus(); });
@@ -1221,7 +1357,7 @@
     var raw = impText.value.trim(), obj;
     try { obj = JSON.parse(raw); } catch (e) { showMsg('That is not valid. Paste exactly what the snippet copied.'); return; }
     if (!obj || typeof obj !== 'object') { showMsg('Nothing to import.'); return; }
-    var nDays = 0, nTasks = 0;
+    var nDays = 0, nTasks = 0, nNotes = 0;
     Object.keys(obj).forEach(function (k) {
       if (k.indexOf('studytimer.') !== 0) return;
       var v = obj[k];
@@ -1241,19 +1377,97 @@
         v.forEach(function (t) {
           if (t && typeof t.id === 'string' && typeof t.title === 'string' && !tasks.some(function (x) { return x.id === t.id; })) { tasks.push(t); nTasks++; }
         });
+      } else if (k === NOTES_KEY && Array.isArray(v.entries)) {
+        v.entries.forEach(function (e) {
+          if (e && typeof e.id === 'string' && typeof e.text === 'string' && e.at > 0 && !notes.entries.some(function (x) { return x.id === e.id; })) {
+            notes.entries.push({ id: e.id, text: e.text, kind: e.kind === 'note' ? 'note' : 'learning', at: e.at }); nNotes++;
+          }
+        });
+        if (v.statusAt > notes.statusAt && typeof v.status === 'string') { notes.status = v.status; notes.statusAt = v.statusAt; nNotes++; }
       }
     });
-    saveTasks(); save();
+    saveTasks(); saveNotes(); save(); fillStatus();
     impText.value = ''; impBox.hidden = true;
-    showMsg('Imported ' + nDays + ' days and ' + nTasks + ' tasks.');
+    showMsg('Imported ' + nDays + ' days, ' + nTasks + ' tasks and ' + nNotes + ' notes.');
     render();
   });
+
+  /* save to a folder on this computer (Chrome or Edge on desktop, when opened as a local file) */
+  var dirHandle = null, folderTimer = 0, folderBtn = $('folderBtn'), folderSaved = '';
+  var fsOk = !!window.showDirectoryPicker;
+  function idb(mode, fn) {
+    return new Promise(function (res, rej) {
+      var r = indexedDB.open('studytimer-fs', 1);
+      r.onupgradeneeded = function () { r.result.createObjectStore('h'); };
+      r.onerror = function () { rej(r.error); };
+      r.onsuccess = function () {
+        var tx = r.result.transaction('h', mode), q = fn(tx.objectStore('h'));
+        tx.oncomplete = function () { res(q && q.result); };
+        tx.onerror = function () { rej(tx.error); };
+      };
+    });
+  }
+  function folderUi(state) {
+    if (!fsOk) return;
+    folderBtn.hidden = false;
+    folderBtn.textContent = state === 'ok' ? 'Folder saved ' + folderSaved : (state === 'reconnect' ? 'Reconnect folder' : (state === 'error' ? 'Folder error, retry' : 'Save to folder'));
+  }
+  function allData() {
+    var o = {};
+    try { for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf('studytimer.') === 0) o[k] = localStorage.getItem(k); } } catch (e) {}
+    return o;
+  }
+  function writeFile(name, text) {
+    return dirHandle.getFileHandle(name, { create: true }).then(function (fh) {
+      return fh.createWritable();
+    }).then(function (w) { return w.write(text).then(function () { return w.close(); }); });
+  }
+  function writeFolder() {
+    if (!dirHandle) return Promise.resolve();
+    return dirHandle.queryPermission({ mode: 'readwrite' }).then(function (p) {
+      if (p !== 'granted') { folderUi('reconnect'); return; }
+      return writeFile('focus-data.json', JSON.stringify(allData())).then(function () {
+        return writeFile('focus-log.csv', buildCsv());
+      }).then(function () {
+        return writeFile('notes.md', buildNotesMd());
+      }).then(function () { folderSaved = hhmm(new Date()); folderUi('ok'); });
+    }).catch(function () { folderUi('error'); });
+  }
+  function scheduleFolder() { if (!dirHandle) return; clearTimeout(folderTimer); folderTimer = setTimeout(writeFolder, 4000); }
+  function restoreFromFolder(h) {
+    return h.getFileHandle('focus-data.json').then(function (fh) { return fh.getFile(); }).then(function (f) { return f.text(); }).then(function (txt) {
+      if (txt) { impText.value = txt; $('impGo').click(); }
+    }).catch(function () {});
+  }
+  if (fsOk) {
+    folderUi('none');
+    idb('readonly', function (st) { return st.get('dir'); }).then(function (h) {
+      if (h) { dirHandle = h; return h.queryPermission({ mode: 'readwrite' }).then(function (p) { if (p === 'granted') writeFolder(); else folderUi('reconnect'); }); }
+    }).catch(function () {});
+    folderBtn.addEventListener('click', function () {
+      var go = dirHandle ? dirHandle.queryPermission({ mode: 'readwrite' }) : Promise.resolve('none');
+      go.then(function (p) {
+        if (dirHandle && p !== 'granted') return dirHandle.requestPermission({ mode: 'readwrite' }).then(function (q) {
+          if (q === 'granted') { return writeFolder().then(function () { showMsg('Saving to your folder again.'); }); }
+        });
+        return window.showDirectoryPicker({ mode: 'readwrite' }).then(function (h) {
+          dirHandle = h;
+          return idb('readwrite', function (st) { return st.put(h, 'dir'); }).then(function () { return restoreFromFolder(h); }).then(writeFolder).then(function () {
+            showMsg('Saving focus-data.json and focus-log.csv to that folder.');
+          });
+        });
+      }).catch(function (e) {
+        if (e && e.name === 'AbortError') return;
+        showMsg('This view blocks folder access. Open the downloaded timer file in Chrome or Edge on your computer.');
+      });
+    });
+  }
 
   /* CSV download is offered only where the viewer supports it */
   try {
     if (window.claude && window.claude.use) {
       window.claude.use('downloads').then(function (d) {
-        if (d) { dlApi = d; els.dlCsv.hidden = false; }
+        if (d) { dlApi = d; els.dlCsv.hidden = false; $('dlNotes').hidden = false; }
       }).catch(function () {});
     }
   } catch (e) {}
